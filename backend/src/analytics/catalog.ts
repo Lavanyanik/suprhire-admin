@@ -1,0 +1,133 @@
+export type MetricDefinition = {
+  metric: string;
+  sourceTable: string;
+  sourceColumn: string;
+  calculation: string;
+  timePeriod: string;
+  userAttribution: string;
+  companyAttribution: string;
+  limitations: string;
+};
+
+export const p0MetricCatalog: MetricDefinition[] = [
+  {
+    metric: 'Total Users',
+    sourceTable: 'profiles',
+    sourceColumn: 'id',
+    calculation: 'COUNT(DISTINCT profiles.id)',
+    timePeriod: 'Since inception',
+    userAttribution: 'profile.id',
+    companyAttribution: 'profiles.company_id',
+    limitations: 'Users are counted at the profile level. This is a proxy for account count and does not guarantee a login event has occurred.',
+  },
+  {
+    metric: 'New Users',
+    sourceTable: 'profiles',
+    sourceColumn: 'created_at',
+    calculation: 'COUNT(*) WHERE created_at >= time window',
+    timePeriod: 'Today / last 7 days / last 30 days',
+    userAttribution: 'profile.id',
+    companyAttribution: 'profiles.company_id',
+    limitations: 'This reflects account creation time, not necessarily first successful login.',
+  },
+  {
+    metric: 'Active Users',
+    sourceTable: 'profiles',
+    sourceColumn: 'updated_at',
+    calculation: 'COUNT(*) WHERE updated_at >= prior 30 days',
+    timePeriod: 'Last 30 days',
+    userAttribution: 'profile.id',
+    companyAttribution: 'profiles.company_id',
+    limitations: 'This is an activity proxy based on profile recency; it is not a true login or product event stream.',
+  },
+  {
+    metric: 'Never Logged In Users',
+    sourceTable: 'auth.users',
+    sourceColumn: 'last_sign_in_at',
+    calculation: 'COUNT(*) WHERE last_sign_in_at IS NULL',
+    timePeriod: 'Since inception',
+    userAttribution: 'auth.users.id',
+    companyAttribution: 'profiles.company_id via user_id',
+    limitations: 'Requires secure server-side auth access; not available in the browser read-only path.',
+  },
+  {
+    metric: 'Total Companies',
+    sourceTable: 'companies',
+    sourceColumn: 'id',
+    calculation: 'COUNT(DISTINCT companies.id)',
+    timePeriod: 'Since inception',
+    userAttribution: 'profiles.id via company relationships',
+    companyAttribution: 'companies.id',
+    limitations: 'Counts organization records, not necessarily active customers or active workspaces.',
+  },
+  {
+    metric: 'Jobs',
+    sourceTable: 'jobs',
+    sourceColumn: 'id',
+    calculation: 'COUNT(DISTINCT jobs.id)',
+    timePeriod: 'Since inception / current active',
+    userAttribution: 'jobs.created_by',
+    companyAttribution: 'jobs.company_id',
+    limitations: 'Counts total job records; status must be filtered separately for active-only views.',
+  },
+  {
+    metric: 'Applications',
+    sourceTable: 'applications',
+    sourceColumn: 'id',
+    calculation: 'COUNT(DISTINCT applications.id)',
+    timePeriod: 'Since inception / last 30 days',
+    userAttribution: 'jobs.created_by + attribution if available downstream',
+    companyAttribution: 'jobs.company_id via job_id',
+    limitations: 'Application attribution is only reliable when downstream joins to jobs or company-scoped records are valid and the job/company mapping is intact.',
+  },
+  {
+    metric: 'Resume Imports',
+    sourceTable: 'resume_imports',
+    sourceColumn: 'id',
+    calculation: 'COUNT(DISTINCT resume_imports.id)',
+    timePeriod: 'Since inception / last 30 days',
+    userAttribution: 'resume_imports.user_id',
+    companyAttribution: 'resume_imports.company_id',
+    limitations: 'This counts import rows, not necessarily unique candidate uploads or successful parse outcomes.',
+  },
+  {
+    metric: 'Campaigns',
+    sourceTable: 'campaigns',
+    sourceColumn: 'id',
+    calculation: 'COUNT(DISTINCT campaigns.id)',
+    timePeriod: 'Since inception / last 30 days',
+    userAttribution: 'campaigns.created_by',
+    companyAttribution: 'campaigns.company_id',
+    limitations: 'Counts campaign records only; status-specific trends need additional classification logic.',
+  },
+  {
+    metric: 'AI Agents',
+    sourceTable: 'ai_agents',
+    sourceColumn: 'id',
+    calculation: 'COUNT(DISTINCT ai_agents.id)',
+    timePeriod: 'Since inception',
+    userAttribution: 'ai_agents.created_by',
+    companyAttribution: 'ai_agents.company_id',
+    limitations: 'This is a count of agent records. Health or failure-rate analytics require additional operation records that are not in the schema.',
+  },
+  {
+    metric: 'Interviews',
+    sourceTable: 'interviews',
+    sourceColumn: 'id',
+    calculation: 'COUNT(DISTINCT interviews.id)',
+    timePeriod: 'Since inception / last 30 days',
+    userAttribution: 'interviews.created_by / interviews.interviewer_id when present',
+    companyAttribution: 'jobs.company_id via job_id',
+    limitations: 'Creator or interviewer attribution is only reliable for rows that actually populate the expected attribution columns; this is schema-dependent.',
+  },
+  {
+    metric: 'Calls',
+    sourceTable: 'screening_calls',
+    sourceColumn: 'id',
+    calculation: 'COUNT(DISTINCT screening_calls.id)',
+    timePeriod: 'Since inception / last 30 days',
+    userAttribution: 'inferred through interviews or campaign context',
+    companyAttribution: 'campaign_candidates -> campaigns -> company_id when relationships are available',
+    limitations: 'The table exists and is queryable, but a reliable user-level attribution trail is not guaranteed without additional joins or event metadata.',
+  },
+];

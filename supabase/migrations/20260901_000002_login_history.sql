@@ -1,0 +1,27 @@
+-- Purpose:
+--   Planned future schema for login and authentication event history.
+-- Why it is needed:
+--   This would provide a reliable source of truth for active users, churn risk, and
+--   never-logged-in or dormant-account analytics without querying auth internals directly.
+-- What metric it enables:
+--   Daily/weekly active users, login frequency, never-logged-in accounts, and stagnant accounts.
+--
+-- WARNING:
+--   This migration file is intentionally documentation-only and remains unapplied.
+--   It is not executed against the existing production Supabase instance.
+--
+-- CREATE TABLE IF NOT EXISTS user_login_history (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   user_id UUID NOT NULL,
+--   company_id UUID,
+--   login_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+--   ip_address TEXT,
+--   user_agent TEXT,
+--   status TEXT NOT NULL DEFAULT 'success'
+-- );
+--
+-- CREATE INDEX IF NOT EXISTS idx_user_login_history_user_login_at
+-- ON user_login_history (user_id, login_at DESC);
+--
+-- CREATE INDEX IF NOT EXISTS idx_user_login_history_company_login_at
+-- ON user_login_history (company_id, login_at DESC);

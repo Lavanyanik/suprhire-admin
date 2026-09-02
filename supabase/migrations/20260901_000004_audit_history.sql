@@ -1,0 +1,29 @@
+-- Purpose:
+--   Planned future schema for detailed audit and user action history.
+-- Why it is needed:
+--   This enables reliable attribution, operational review, and compliance-style traces for
+--   user-generated actions that are currently too opaque in the production schema.
+-- What metric it enables:
+--   User action volume, action attribution by user/company, review counts, and compliance/audit trails.
+--
+-- WARNING:
+--   This migration file is intentionally documentation-only and remains unapplied.
+--   It is not executed against the existing production Supabase instance.
+--
+-- CREATE TABLE IF NOT EXISTS audit_events (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   actor_user_id UUID,
+--   actor_company_id UUID,
+--   entity_type TEXT,
+--   entity_id UUID,
+--   action_type TEXT NOT NULL,
+--   before_snapshot JSONB DEFAULT '{}'::jsonb,
+--   after_snapshot JSONB DEFAULT '{}'::jsonb,
+--   created_at TIMESTAMPTZ DEFAULT NOW()
+-- );
+--
+-- CREATE INDEX IF NOT EXISTS idx_audit_events_actor_created_at
+-- ON audit_events (actor_user_id, created_at DESC);
+--
+-- CREATE INDEX IF NOT EXISTS idx_audit_events_entity_type_entity_id
+-- ON audit_events (entity_type, entity_id);

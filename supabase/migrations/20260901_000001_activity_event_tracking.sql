@@ -1,0 +1,28 @@
+-- Purpose:
+--   Planned future schema for user activity and product event tracking.
+-- Why it is needed:
+--   This would let the admin analytics layer answer questions about feature adoption,
+--   user behavior, and operational workflows without relying on brittle profile recency proxies.
+-- What metric it enables:
+--   Feature adoption, active workflow counts, daily product activity, funnel progress,
+--   and user activity attribution by company and user.
+--
+-- WARNING:
+--   This migration file is intentionally documentation-only and remains unapplied.
+--   It is not executed against the existing production Supabase instance.
+--
+-- CREATE TABLE IF NOT EXISTS activity_events (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   user_id UUID,
+--   company_id UUID,
+--   event_name TEXT NOT NULL,
+--   event_category TEXT,
+--   metadata JSONB DEFAULT '{}'::jsonb,
+--   created_at TIMESTAMPTZ DEFAULT NOW()
+-- );
+--
+-- CREATE INDEX IF NOT EXISTS idx_activity_events_user_created_at
+-- ON activity_events (user_id, created_at DESC);
+--
+-- CREATE INDEX IF NOT EXISTS idx_activity_events_company_created_at
+-- ON activity_events (company_id, created_at DESC);

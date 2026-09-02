@@ -1,0 +1,30 @@
+-- Purpose:
+--   Planned future schema for failed workflow and automation event tracking.
+-- Why it is needed:
+--   The admin analytics layer needs clear failure signal data to identify broken steps,
+--   user friction, and operational bottlenecks that are not visible in successful completion counts.
+-- What metric it enables:
+--   Failed workflow rates, automation failure counts, retry loops, and workflow reliability trends.
+--
+-- WARNING:
+--   This migration file is intentionally documentation-only and remains unapplied.
+--   It is not executed against the existing production Supabase instance.
+--
+-- CREATE TABLE IF NOT EXISTS workflow_failures (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   user_id UUID,
+--   company_id UUID,
+--   workflow_name TEXT NOT NULL,
+--   stage_name TEXT,
+--   error_code TEXT,
+--   error_message TEXT,
+--   raw_payload JSONB DEFAULT '{}'::jsonb,
+--   created_at TIMESTAMPTZ DEFAULT NOW()
+-- );
+--
+-- CREATE INDEX IF NOT EXISTS idx_workflow_failures_company_created_at
+-- ON workflow_failures (company_id, created_at DESC);
+--
+-- CREATE INDEX IF NOT EXISTS idx_workflow_failures_workflow_created_at
+-- ON workflow_failures (workflow_name, created_at DESC);
+-

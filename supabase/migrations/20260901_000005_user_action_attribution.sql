@@ -1,0 +1,28 @@
+-- Purpose:
+--   Planned future schema for event-level user attribution and company linkage.
+-- Why it is needed:
+--   Some analytics questions depend on the exact user or company tied to an action, not just the
+--   current workspace or profile record. This provides a cleaner attribution layer for future dashboards.
+-- What metric it enables:
+--   User attribution by event, company-level action counts, and workflow/campaign ownership tracing.
+--
+-- WARNING:
+--   This migration file is intentionally documentation-only and remains unapplied.
+--   It is not executed against the existing production Supabase instance.
+--
+-- CREATE TABLE IF NOT EXISTS user_action_attribution (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   user_id UUID NOT NULL,
+--   company_id UUID,
+--   action_type TEXT NOT NULL,
+--   source_table TEXT,
+--   source_record_id UUID,
+--   attribution_context JSONB DEFAULT '{}'::jsonb,
+--   created_at TIMESTAMPTZ DEFAULT NOW()
+-- );
+--
+-- CREATE INDEX IF NOT EXISTS idx_user_action_attribution_user_created_at
+-- ON user_action_attribution (user_id, created_at DESC);
+--
+-- CREATE INDEX IF NOT EXISTS idx_user_action_attribution_company_created_at
+-- ON user_action_attribution (company_id, created_at DESC);
