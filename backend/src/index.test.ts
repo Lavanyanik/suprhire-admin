@@ -8,6 +8,7 @@ process.env.ADMIN_API_KEY = 'internal-admin-token';
 process.env.ADMIN_DEV_TOKEN = 'local-dev-admin-token';
 
 const { default: app } = await import('./index.js');
+const { buildGrowthMetric, calculateMonthOverMonthGrowth } = await import('./analytics/growth.js');
 
 const authHeader = 'Bearer internal-admin-token';
 
@@ -158,6 +159,58 @@ test('abuse detection endpoint exposes review-only structured signals', async ()
     assert.ok(['high-volume-activity', 'burst-activity', 'loophole-signal'].includes(alert.signalType));
     assert.match(alert.reason, /requiring admin review/);
     assert.ok(alert.observedActivity);
+  }
+});
+
+test('growth endpoint is protected', async () => {
+  const response = await request(app).get('/api/admin/analytics/growth');
+  assert.equal(response.status, 401);
+});
+
+test('growth endpoint exposes all supported metric structures', async () => {
+  const response = await request(app).get('/api/admin/analytics/growth').set('Authorization', authHeader);
+  assert.equal(response.status, 200);
+  assert.ok(['ready', 'data-access-pending', 'missing-config', 'error'].includes(response.body.status));
+  for (const key of ['users', 'companies', 'jobs', 'applications', 'resumeImports', 'aiAgents', 'interviews', 'calls']) {
+    const metric = response.body.metrics[key];
+    assert.ok(metric);
+    if (response.body.status === 'ready') {
+      assert.equal(metric.status, 'available');
+      assert.equal(metric.monthly.length, 12);
+      assert.match(metric.monthly[0].period, /^\d{4}-\d{2}$/);
+      assert.equal(typeof metric.currentMonth, 'number');
+      assert.equal(typeof metric.previousMonth, 'number');
+    }
+  }
+});
+
+test('growth MoM calculation handles normal and zero baselines', () => {
+  assert.equal(calculateMonthOverMonthGrowth(15, 10), 50);
+  assert.equal(calculateMonthOverMonthGrowth(5, 0), null);
+  const metric = buildGrowthMetric(
+    [{ date: new Date('2026-08-05T00:00:00Z') }, { date: new Date('2026-09-05T00:00:00Z') }],
+    new Date('2026-09-10T00:00:00Z'),
+  );
+  assert.equal(metric.currentMonth, 1);
+  assert.equal(metric.previousMonth, 1);
+  assert.equal(metric.monthOverMonthGrowthPercent, 0);
+});
+
+test('growth metrics remain unavailable when Supabase configuration is missing', async () => {
+  const response = await request(app).get('/api/admin/analytics/growth').set('Authorization', authHeader);
+  assert.ok(['ready', 'data-access-pending', 'missing-config', 'error'].includes(response.body.status));
+  if (response.body.status === 'missing-config') {
+    assert.equal(response.body.metrics.users.status, 'unavailable');
+    assert.deepEqual(response.body.metrics.users.monthly, []);
+  }
+});
+
+test('growth response never reports fabricated metrics during pending access', async () => {
+  const response = await request(app).get('/api/admin/analytics/growth').set('Authorization', authHeader);
+  if (response.body.status === 'data-access-pending') {
+    assert.equal(response.body.metrics.users.total, 0);
+    assert.deepEqual(response.body.metrics.users.monthly, []);
+    assert.equal(response.body.metrics.users.monthOverMonthGrowthPercent, null);
   }
 });
 

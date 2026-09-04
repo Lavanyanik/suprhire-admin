@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { abuseDetectionAnalytics, healthCheck, overviewMetrics, productUsageAnalytics, systemHealthAnalytics, userCompanyAnalytics } from '../controllers/adminController.js';
+import { abuseDetectionAnalytics, growthAnalytics, healthCheck, overviewMetrics, productUsageAnalytics, systemHealthAnalytics, userCompanyAnalytics } from '../controllers/adminController.js';
 import { configureDevSessionCookie, requireAdminAuth } from '../middleware/adminAuth.js';
 
 export const createAdminRouter = () => {
@@ -44,6 +44,7 @@ export const createAdminRouter = () => {
   router.get('/analytics/product-usage', productUsageAnalytics);
   router.get('/analytics/system-health', systemHealthAnalytics);
   router.get('/analytics/abuse-detection', abuseDetectionAnalytics);
+  router.get('/analytics/growth', growthAnalytics);
   router.get('/users', (_req, res) => {
     res.status(501).json({ error: 'Not implemented yet', path: '/api/admin/users' });
   });

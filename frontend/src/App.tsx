@@ -84,6 +84,20 @@ type AbuseDetection = {
   notes: { thresholds: string; unavailableSignals: string };
 };
 
+type GrowthMetric = {
+  status: 'available' | 'unavailable';
+  total: number;
+  monthly: Array<{ period: string; count: number }>;
+  currentMonth: number;
+  previousMonth: number;
+  monthOverMonthGrowthPercent: number | null;
+};
+
+type GrowthAnalytics = {
+  status: 'ready' | 'data-access-pending' | 'missing-config' | 'error';
+  metrics: Record<'users' | 'companies' | 'jobs' | 'applications' | 'resumeImports' | 'aiAgents' | 'interviews' | 'calls', GrowthMetric>;
+};
+
 const timeWindows: Array<{ id: TimeWindowId; label: string }> = [
   { id: 'today', label: 'Today' },
   { id: 'yesterday', label: 'Yesterday' },
@@ -122,6 +136,7 @@ const fetchUserCompanyAnalytics = async (): Promise<Response> => fetchWithDevLog
 const fetchProductUsageAnalytics = async (): Promise<Response> => fetchWithDevLogin(`${API_BASE_URL}/api/admin/analytics/product-usage`);
 const fetchSystemHealthAnalytics = async (): Promise<Response> => fetchWithDevLogin(`${API_BASE_URL}/api/admin/analytics/system-health`);
 const fetchAbuseDetection = async (): Promise<Response> => fetchWithDevLogin(`${API_BASE_URL}/api/admin/analytics/abuse-detection`);
+const fetchGrowthAnalytics = async (): Promise<Response> => fetchWithDevLogin(`${API_BASE_URL}/api/admin/analytics/growth`);
 
 function App() {
   const [metrics, setMetrics] = useState<OverviewMetrics | null>(null);
@@ -129,6 +144,7 @@ function App() {
   const [productUsageMetrics, setProductUsageMetrics] = useState<ProductUsageAnalytics | null>(null);
   const [systemHealthMetrics, setSystemHealthMetrics] = useState<SystemHealthAnalytics | null>(null);
   const [abuseDetection, setAbuseDetection] = useState<AbuseDetection | null>(null);
+  const [growthAnalytics, setGrowthAnalytics] = useState<GrowthAnalytics | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedWindow, setSelectedWindow] = useState<TimeWindowId>('last30Days');
   const [isLoading, setIsLoading] = useState(true);
@@ -136,6 +152,7 @@ function App() {
   const [isProductUsageLoading, setIsProductUsageLoading] = useState(true);
   const [isSystemHealthLoading, setIsSystemHealthLoading] = useState(true);
   const [isAbuseDetectionLoading, setIsAbuseDetectionLoading] = useState(true);
+  const [isGrowthLoading, setIsGrowthLoading] = useState(true);
 
   useEffect(() => {
     const loadMetrics = async () => {
@@ -215,11 +232,24 @@ function App() {
       }
     };
 
+    const loadGrowthAnalytics = async () => {
+      try {
+        const response = await fetchGrowthAnalytics();
+        if (!response.ok) throw new Error(`Request failed with status ${response.status}`);
+        setGrowthAnalytics((await response.json()) as GrowthAnalytics);
+      } catch (loadError) {
+        console.error(loadError);
+      } finally {
+        setIsGrowthLoading(false);
+      }
+    };
+
     void loadMetrics();
     void loadUserCompanyMetrics();
     void loadProductUsageMetrics();
     void loadSystemHealthMetrics();
     void loadAbuseDetection();
+    void loadGrowthAnalytics();
   }, []);
 
   const selectedWindowLabel = timeWindows.find((window) => window.id === selectedWindow)?.label;
@@ -576,6 +606,88 @@ function App() {
                 ))}
               </div>
             </>
+          )}
+        </section>
+
+        <section className="analytics-section growth-section" aria-live="polite">
+          <div className="metric-heading">
+            <h3>Growth Analytics</h3>
+            <span>Monthly trends · no growth score</span>
+          </div>
+
+          {isGrowthLoading && (
+            <div className="state-panel loading-state" aria-live="polite">
+              <span className="loader" aria-hidden="true" />
+              <span>Loading growth analytics...</span>
+            </div>
+          )}
+
+          {!isGrowthLoading && !growthAnalytics && (
+            <div className="state-panel error-state" role="alert">
+              <strong>Growth analytics unavailable</strong>
+              <span>The admin API did not return a growth response.</span>
+            </div>
+          )}
+
+          {!isGrowthLoading && growthAnalytics?.status === 'missing-config' && (
+            <div className="state-panel unavailable-state">
+              <strong>Growth data unavailable</strong>
+              <span>Read-only Supabase configuration is missing. No growth metrics were generated.</span>
+            </div>
+          )}
+
+          {!isGrowthLoading && growthAnalytics?.status === 'data-access-pending' && (
+            <div className="state-panel unavailable-state">
+              <strong>Growth data access pending</strong>
+              <span>One or more supported sources returned no readable rows, possibly because of RLS visibility. No zero-growth conclusion is reported.</span>
+            </div>
+          )}
+
+          {!isGrowthLoading && growthAnalytics?.status === 'error' && (
+            <div className="state-panel error-state" role="alert">
+              <strong>Growth analytics unavailable</strong>
+              <span>A supported growth source could not be read.</span>
+            </div>
+          )}
+
+          {!isGrowthLoading && growthAnalytics?.status === 'ready' && (
+            <div className="growth-grid">
+              {([
+                ['users', 'New Users'],
+                ['companies', 'New Companies'],
+                ['jobs', 'Jobs'],
+                ['applications', 'Applications'],
+                ['resumeImports', 'Resume Imports'],
+                ['aiAgents', 'AI Agents'],
+                ['interviews', 'Interviews'],
+                ['calls', 'Screening Calls'],
+              ] as const).map(([key, label]) => {
+                const metric = growthAnalytics.metrics[key];
+                const growth = metric.monthOverMonthGrowthPercent;
+                return (
+                  <article className="growth-card" key={key}>
+                    <div className="usage-panel-heading">
+                      <h4>{label}</h4>
+                      <span className={`usage-status ${metric.status}`}>{metric.status === 'available' ? 'Available' : 'Unavailable'}</span>
+                    </div>
+                    {metric.status === 'available' ? (
+                      <>
+                        <div className="growth-summary">
+                          <div><span>Current month</span><strong>{metric.currentMonth.toLocaleString()}</strong></div>
+                          <div><span>Previous month</span><strong>{metric.previousMonth.toLocaleString()}</strong></div>
+                          <div className={growth === null ? 'growth-change neutral' : growth >= 0 ? 'growth-change positive' : 'growth-change negative'}>
+                            <span>MoM change</span><strong>{growth === null ? 'Not calculable' : `${growth >= 0 ? '+' : ''}${growth.toFixed(1)}%`}</strong>
+                          </div>
+                        </div>
+                        <div className="growth-trend">
+                          {metric.monthly.slice(-6).map((point) => <div key={point.period}><span>{point.period.slice(5)}</span><strong>{point.count.toLocaleString()}</strong></div>)}
+                        </div>
+                      </>
+                    ) : <p className="unavailable-copy">This metric is unavailable through the current read-only data path.</p>}
+                  </article>
+                );
+              })}
+            </div>
           )}
         </section>
 

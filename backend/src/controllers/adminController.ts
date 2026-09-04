@@ -4,6 +4,7 @@ import { fetchUserCompanyAnalytics } from '../analytics/userCompany.js';
 import { fetchProductUsageAnalytics } from '../analytics/productUsage.js';
 import { fetchSystemHealth } from '../analytics/systemHealth.js';
 import { fetchAbuseDetection } from '../analytics/abuseDetection.js';
+import { fetchGrowthAnalytics } from '../analytics/growth.js';
 
 export const healthCheck = (_req: any, res: any): void => {
   res.json({
@@ -40,4 +41,9 @@ export const systemHealthAnalytics = async (_req: any, res: any): Promise<void> 
 export const abuseDetectionAnalytics = async (_req: any, res: any): Promise<void> => {
   const detection = await fetchAbuseDetection();
   res.json(detection);
+};
+
+export const growthAnalytics = async (_req: any, res: any): Promise<void> => {
+  const analytics = await fetchGrowthAnalytics();
+  res.json(analytics);
 };
