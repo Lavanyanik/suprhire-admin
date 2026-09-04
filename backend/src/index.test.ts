@@ -102,6 +102,65 @@ test('canonical user and product metrics are defined', () => {
   assert.ok(names.includes('Calls'));
 });
 
+test('user and company analytics endpoint exposes verified metrics', async () => {
+  const response = await request(app)
+    .get('/api/admin/analytics/user-company')
+    .set('Authorization', authHeader);
+
+  assert.equal(response.status, 200);
+  assert.ok(response.body.userAnalytics);
+  assert.ok(response.body.companyAnalytics);
+  assert.ok(Array.isArray(response.body.userAnalytics.byCompany));
+  assert.ok(Array.isArray(response.body.userAnalytics.byRole));
+  assert.ok(Array.isArray(response.body.userAnalytics.growthTrend));
+  assert.ok(Array.isArray(response.body.companyAnalytics.byCompany));
+  assert.ok(Array.isArray(response.body.companyAnalytics.growthTrend));
+});
+
+test('product usage analytics endpoint exposes structured metric states', async () => {
+  const response = await request(app)
+    .get('/api/admin/analytics/product-usage')
+    .set('Authorization', authHeader);
+
+  assert.equal(response.status, 200);
+  assert.ok(['ready', 'data-access-pending', 'missing-config', 'error'].includes(response.body.status));
+  for (const metric of ['jobs', 'applications', 'resumeImports', 'campaigns', 'aiAgents', 'interviews', 'calls']) {
+    assert.ok(response.body.metrics[metric]);
+    assert.ok(['available', 'no_data', 'unavailable'].includes(response.body.metrics[metric].status));
+  }
+});
+
+test('system health endpoint exposes explicit readiness states', async () => {
+  const response = await request(app)
+    .get('/api/admin/analytics/system-health')
+    .set('Authorization', authHeader);
+
+  assert.equal(response.status, 200);
+  assert.ok(['healthy', 'warning', 'critical', 'unavailable', 'data-access-pending'].includes(response.body.status));
+  assert.ok(response.body.summary);
+  assert.ok(response.body.workflows);
+  assert.ok(response.body.signals);
+  assert.ok(response.body.workflows.resumeImports);
+  assert.ok(response.body.workflows.calls);
+});
+
+test('abuse detection endpoint exposes review-only structured signals', async () => {
+  const response = await request(app)
+    .get('/api/admin/analytics/abuse-detection')
+    .set('Authorization', authHeader);
+
+  assert.equal(response.status, 200);
+  assert.ok(['ready', 'data-access-pending', 'missing-config', 'error'].includes(response.body.status));
+  assert.ok(Array.isArray(response.body.alerts));
+  assert.ok(response.body.notes.thresholds);
+  for (const alert of response.body.alerts) {
+    assert.ok(['info', 'warning', 'high'].includes(alert.severity));
+    assert.ok(['high-volume-activity', 'burst-activity', 'loophole-signal'].includes(alert.signalType));
+    assert.match(alert.reason, /requiring admin review/);
+    assert.ok(alert.observedActivity);
+  }
+});
+
 test('unsupported metrics are explicitly marked unavailable', () => {
   const unavailable = metricCatalog.filter((metric) => !metric.available);
 
