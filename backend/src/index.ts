@@ -17,7 +17,7 @@ export const createApp = () => {
       service: 'suprhire-admin-backend',
       status: 'healthy',
       adminProtected: true,
-      readOnlySupabase: Boolean(env.supabaseUrl && env.supabaseAnonKey),
+      readOnlySupabase: Boolean(env.supabaseUrl && env.supabaseServiceKey),
       supabaseMode: 'read-only',
       requiresAdminAuth: true,
     });
