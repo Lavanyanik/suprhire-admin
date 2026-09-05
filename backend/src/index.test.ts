@@ -9,6 +9,7 @@ process.env.ADMIN_DEV_TOKEN = 'local-dev-admin-token';
 
 const { default: app } = await import('./index.js');
 const { buildGrowthMetric, calculateMonthOverMonthGrowth } = await import('./analytics/growth.js');
+const { composeDailySummary } = await import('./analytics/dailySummary.js');
 
 const authHeader = 'Bearer internal-admin-token';
 
@@ -212,6 +213,55 @@ test('growth response never reports fabricated metrics during pending access', a
     assert.deepEqual(response.body.metrics.users.monthly, []);
     assert.equal(response.body.metrics.users.monthOverMonthGrowthPercent, null);
   }
+});
+
+const summaryFixture = (overrides: Record<string, unknown> = {}) => ({
+  health: { status: 'healthy', workflows: {}, signals: {} },
+  abuse: { status: 'ready', alerts: [] },
+  usage: { status: 'ready', metrics: { jobs: { status: 'available', byWindow: { today: 4, yesterday: 0 } } } },
+  growth: { status: 'ready', metrics: { users: { status: 'available', currentMonth: 2, previousMonth: 0, monthOverMonthGrowthPercent: null } } },
+  ...overrides,
+});
+
+test('daily summary exposes all sections and handles no abuse signals', () => {
+  const fixture = summaryFixture();
+  const summary = composeDailySummary(fixture.health, fixture.abuse, fixture.usage, fixture.growth, '2026-09-04T12:00:00.000Z');
+  assert.equal(summary.status, 'ready');
+  assert.equal(summary.abuse.totalSignals, 0);
+  assert.deepEqual(summary.abuse.highlights, []);
+  assert.ok(summary.health && summary.usageChanges && summary.growthHighlights && summary.dataAccess && summary.summary);
+  assert.equal(summary.usageChanges.highlights[0].percentageChange, null);
+  assert.equal(summary.growthHighlights.highlights.length, 0);
+});
+
+test('daily summary endpoint requires admin authentication and returns all sections when authorized', async () => {
+  const unauthorized = await request(app).get('/api/admin/analytics/daily-summary');
+  assert.equal(unauthorized.status, 401);
+  const authorized = await request(app).get('/api/admin/analytics/daily-summary').set('Authorization', authHeader);
+  assert.equal(authorized.status, 200);
+  for (const key of ['health', 'abuse', 'usageChanges', 'growthHighlights', 'dataAccess', 'summary']) assert.ok(authorized.body[key]);
+});
+
+test('daily summary propagates pending access without fabricating zero activity', () => {
+  const fixture = summaryFixture({ usage: { status: 'data-access-pending', metrics: {} }, growth: { status: 'data-access-pending', metrics: {} } });
+  const summary = composeDailySummary(fixture.health, fixture.abuse, fixture.usage, fixture.growth, '2026-09-04T12:00:00.000Z');
+  assert.equal(summary.status, 'data-access-pending');
+  assert.ok(summary.dataAccess.issues.length >= 2);
+  assert.equal(summary.usageChanges.highlights.length, 0);
+  assert.equal(summary.growthHighlights.highlights.length, 0);
+});
+
+test('daily summary reports high severity review evidence', () => {
+  const fixture = summaryFixture({ abuse: { status: 'ready', alerts: [{ severity: 'high', signalType: 'burst-activity', companyId: 'company-1', observedActivity: { count: 20 }, reason: 'Evidence', recommendedAdminReviewAction: 'Review' }] } });
+  const summary = composeDailySummary(fixture.health, fixture.abuse, fixture.usage, fixture.growth, '2026-09-04T12:00:00.000Z');
+  assert.equal(summary.abuse.totalSignals, 1);
+  assert.equal(summary.abuse.highSeveritySignals, 1);
+  assert.equal(summary.abuse.highlights[0].companyId, 'company-1');
+});
+
+test('daily summary module contains no production write operations', async () => {
+  const source = await import('node:fs/promises').then((fs) => fs.readFile(new URL('./analytics/dailySummary.ts', import.meta.url), 'utf8'));
+  assert.doesNotMatch(source, /\.(insert|update|delete|upsert)\s*\(/);
 });
 
 test('unsupported metrics are explicitly marked unavailable', () => {
