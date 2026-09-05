@@ -1,53 +1,7 @@
 import { supabase } from '../lib/supabase.js';
-import { metricCatalog, getTimeWindowRange, getSupportedTimeWindows } from '../metrics/index.js';
+import { metricCatalog, getTimeWindowRange } from '../metrics/index.js';
 import type { OverviewAnalytics, MetricValue, TimeWindowId } from '../metrics/types.js';
-
-const getCount = async (table: string, filters: Array<{ column: string; value: unknown; op?: 'eq' | 'gte' | 'lt' }> = []) => {
-  if (!supabase) {
-    return 0;
-  }
-
-  let query = supabase.from(table).select('id', { count: 'exact', head: true });
-
-  for (const filter of filters) {
-    const op = filter.op ?? 'eq';
-    if (op === 'eq') query = query.eq(filter.column, filter.value);
-    if (op === 'gte') query = query.gte(filter.column, filter.value as string | number | boolean | Date);
-    if (op === 'lt') query = query.lt(filter.column, filter.value as string | number | boolean | Date);
-  }
-
-  const { count, error } = await query;
-  if (error) {
-    console.error(`Read-only count failed for ${table}:`, error);
-    return 0;
-  }
-
-  return count ?? 0;
-};
-
-const getCountInWindow = async (table: string, column: string, windowId: TimeWindowId) => {
-  if (!supabase) {
-    return 0;
-  }
-
-  const window = getTimeWindowRange(windowId);
-  if (window.start === null) {
-    return getCount(table);
-  }
-
-  const { count, error } = await supabase
-    .from(table)
-    .select('id', { count: 'exact', head: true })
-    .gte(column, window.start.toISOString())
-    .lte(column, window.end.toISOString());
-
-  if (error) {
-    console.error(`Read-only window count failed for ${table}.${column} (${windowId}):`, error);
-    return 0;
-  }
-
-  return count ?? 0;
-};
+import { getCount, getCountInWindow } from './queries.js';
 
 const getMetricGroup = async (table: string, column: string): Promise<{ total: MetricValue; today: MetricValue; yesterday: MetricValue; last7Days: MetricValue; last30Days: MetricValue; sinceInception: MetricValue; }> => {
   const [total, today, yesterday, last7Days, last30Days, sinceInception] = await Promise.all([
@@ -68,7 +22,6 @@ const getMetricGroup = async (table: string, column: string): Promise<{ total: M
     sinceInception,
   };
 };
-
 const metricDefinition = (name: string) => metricCatalog.find((metric) => metric.metric === name);
 
 export const fetchOverviewMetrics = async (): Promise<OverviewAnalytics> => {
@@ -85,8 +38,8 @@ export const fetchOverviewMetrics = async (): Promise<OverviewAnalytics> => {
       },
       companies: {
         totalCompanies: 0,
-        usersPerCompany: { available: false, reason: 'A verified aggregate of users-per-company is not available yet.' },
-        companiesBySubscriptionTier: { available: false, reason: 'No confirmed subscription tier column was found in the inspected schema.' },
+        usersPerCompany: { available: false, reason: 'Company-level user aggregation is not available without Supabase access.' },
+        companiesBySubscriptionTier: { available: false, reason: 'Subscription tier data is not available without Supabase access.' },
       },
       jobs: { total: 0, today: 0, yesterday: 0, last7Days: 0, last30Days: 0, sinceInception: 0 },
       applications: { total: 0, today: 0, yesterday: 0, last7Days: 0, last30Days: 0, sinceInception: 0 },
@@ -204,6 +157,3 @@ export const fetchOverviewMetrics = async (): Promise<OverviewAnalytics> => {
     };
   }
 };
-
-export const getAdminOverview = async () => fetchOverviewMetrics();
-export const getSupportedOverviewWindows = () => getSupportedTimeWindows();

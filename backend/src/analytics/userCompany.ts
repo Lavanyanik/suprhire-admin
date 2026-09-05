@@ -1,35 +1,13 @@
 import { supabase } from '../lib/supabase.js';
 import { getTimeWindowRange } from '../metrics/index.js';
 import type { MetricGroup, TimeWindowId } from '../metrics/types.js';
+import { getCount, getCountInWindow } from './queries.js';
 
 type CompanyCountMap = Record<string, number>;
 
 type TrendPoint = {
   period: string;
   count: number;
-};
-
-const getCount = async (table: string, filters: Array<{ column: string; value: unknown; op?: 'eq' | 'gte' | 'lt' }> = []) => {
-  if (!supabase) {
-    return 0;
-  }
-
-  let query = supabase.from(table).select('id', { count: 'exact', head: true });
-
-  for (const filter of filters) {
-    const op = filter.op ?? 'eq';
-    if (op === 'eq') query = query.eq(filter.column, filter.value);
-    if (op === 'gte') query = query.gte(filter.column, filter.value as string | number | boolean | Date);
-    if (op === 'lt') query = query.lt(filter.column, filter.value as string | number | boolean | Date);
-  }
-
-  const { count, error } = await query;
-  if (error) {
-    console.error(`Read-only count failed for ${table}:`, error);
-    return 0;
-  }
-
-  return count ?? 0;
 };
 
 const getMetricGroup = async (table: string, column: string): Promise<MetricGroup> => {
@@ -43,30 +21,6 @@ const getMetricGroup = async (table: string, column: string): Promise<MetricGrou
   ]);
 
   return { total, today, yesterday, last7Days, last30Days, sinceInception };
-};
-
-const getCountInWindow = async (table: string, column: string, windowId: TimeWindowId) => {
-  if (!supabase) {
-    return 0;
-  }
-
-  const window = getTimeWindowRange(windowId);
-  if (window.start === null) {
-    return getCount(table);
-  }
-
-  const { count, error } = await supabase
-    .from(table)
-    .select('id', { count: 'exact', head: true })
-    .gte(column, window.start.toISOString())
-    .lte(column, window.end.toISOString());
-
-  if (error) {
-    console.error(`Range count failed for ${table}.${column} (${windowId}):`, error);
-    return 0;
-  }
-
-  return count ?? 0;
 };
 
 const getMonthlyTrend = async (table: string, column: string): Promise<TrendPoint[]> => {
