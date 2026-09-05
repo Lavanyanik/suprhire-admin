@@ -5,6 +5,7 @@ import { fetchProductUsageAnalytics } from '../analytics/productUsage.js';
 import { fetchSystemHealth } from '../analytics/systemHealth.js';
 import { fetchAbuseDetection } from '../analytics/abuseDetection.js';
 import { fetchGrowthAnalytics } from '../analytics/growth.js';
+import { fetchDailySummary } from '../analytics/dailySummary.js';
 
 export const healthCheck = (_req: any, res: any): void => {
   res.json({
@@ -12,7 +13,7 @@ export const healthCheck = (_req: any, res: any): void => {
     service: 'suprhire-admin-backend',
     status: 'healthy',
     adminProtected: true,
-    readOnlySupabase: Boolean(env.supabaseUrl && env.supabaseAnonKey),
+    readOnlySupabase: Boolean(env.supabaseUrl && env.supabaseServiceKey),
     supabaseMode: 'read-only',
     requiresAdminAuth: true,
   });
@@ -46,4 +47,9 @@ export const abuseDetectionAnalytics = async (_req: any, res: any): Promise<void
 export const growthAnalytics = async (_req: any, res: any): Promise<void> => {
   const analytics = await fetchGrowthAnalytics();
   res.json(analytics);
+};
+
+export const dailySummaryAnalytics = async (_req: any, res: any): Promise<void> => {
+  const summary = await fetchDailySummary();
+  res.json(summary);
 };
