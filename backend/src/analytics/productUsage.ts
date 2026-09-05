@@ -17,15 +17,6 @@ type UsageMetric = {
 
 type Row = Record<string, unknown>;
 
-const emptyWindows = (): MetricGroup => ({
-  total: 0,
-  today: 0,
-  yesterday: 0,
-  last7Days: 0,
-  last30Days: 0,
-  sinceInception: 0,
-});
-
 const unavailable = (reason: string): UsageMetric => ({ status: 'unavailable', reason });
 
 const getRows = async (table: string, columns: string): Promise<{ rows: Row[]; error?: string }> => {
@@ -168,6 +159,3 @@ export const fetchProductUsageAnalytics = async () => {
     },
   };
 };
-
-export const productUsageUnavailableMetric = unavailable;
-export const productUsageEmptyWindows = emptyWindows;
